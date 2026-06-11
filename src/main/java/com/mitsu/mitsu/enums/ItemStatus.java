@@ -1,7 +1,2 @@
 package com.mitsu.mitsu.enums;
-
-public enum ItemStatus {
-    LOST,
-    FOUND,
-    CLAIMED
-}
+public enum ItemStatus { LOST, FOUND, CLAIMED }

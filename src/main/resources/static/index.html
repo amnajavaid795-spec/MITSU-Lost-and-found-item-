@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MITSU — Lost & Found</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+        :root {
+          --teal:      #0D9488;
+          --teal-dark: #0F766E;
+          --teal-soft: #CCFBF1;
+          --ink:       #0F172A;
+          --ink-mid:   #334155;
+          --ink-light: #64748B;
+          --surface:   #F8FAFC;
+          --white:     #FFFFFF;
+          --border:    #E2E8F0;
+          --red:       #EF4444;
+          --amber:     #F59E0B;
+          --emerald:   #10B981;
+          --radius:    12px;
+          --shadow:    0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+          --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--surface); color: var(--ink); min-height: 100vh; }
+
+        .hidden { display: none !important; }
+        .mono { font-family: 'Space Mono', monospace; }
+
+        #toast {
+          position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+          background: var(--ink); color: var(--white);
+          padding: 12px 20px; border-radius: var(--radius);
+          font-size: .875rem; font-weight: 500;
+          transform: translateY(80px); opacity: 0;
+          transition: all .3s ease; max-width: 320px;
+        }
+        #toast.show { transform: translateY(0); opacity: 1; }
+        #toast.error { background: var(--red); }
+        #toast.success { background: var(--emerald); }
+
+        /* Claim sent animation overlay */
+        #claim-sent-overlay {
+          position: fixed; inset: 0; z-index: 2000;
+          background: rgba(15,23,42,.7); backdrop-filter: blur(6px);
+          display: flex; align-items: center; justify-content: center;
+        }
+        .claim-sent-box {
+          background: var(--white); border-radius: 20px; padding: 48px 40px;
+          text-align: center; max-width: 380px; width: 100%;
+          box-shadow: var(--shadow-lg);
+          animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+        }
+        @keyframes popIn { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .claim-sent-icon { font-size: 4rem; margin-bottom: 16px; animation: bounce 1s ease infinite; }
+        @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .claim-sent-title { font-size: 1.4rem; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+        .claim-sent-sub { font-size: .9rem; color: var(--ink-light); line-height: 1.5; }
+
+        #auth-overlay {
+          position: fixed; inset: 0; z-index: 1000;
+          background: linear-gradient(135deg, #0F172A 0%, #134E4A 100%);
+          display: flex; align-items: center; justify-content: center; padding: 24px;
+        }
+        .auth-box {
+          background: var(--white); border-radius: 20px;
+          padding: 48px 40px; width: 100%; max-width: 420px; box-shadow: var(--shadow-lg);
+        }
+        .auth-logo { font-family: 'Space Mono', monospace; font-size: 2rem; font-weight: 700; color: var(--teal); letter-spacing: -1px; margin-bottom: 4px; }
+        .auth-tagline { font-size: .875rem; color: var(--ink-light); margin-bottom: 32px; }
+        .auth-tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 10px; padding: 4px; margin-bottom: 28px; }
+        .auth-tab { flex: 1; padding: 8px; border: none; background: transparent; border-radius: 8px; font-family: inherit; font-size: .875rem; font-weight: 500; color: var(--ink-light); cursor: pointer; transition: all .2s; }
+        .auth-tab.active { background: var(--white); color: var(--teal); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+
+        .field { margin-bottom: 16px; }
+        .field label { display: block; font-size: .8rem; font-weight: 600; color: var(--ink-mid); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+        .field input, .field select, .field textarea {
+          width: 100%; padding: 10px 14px;
+          border: 1.5px solid var(--border); border-radius: 8px;
+          font-family: inherit; font-size: .9rem; color: var(--ink);
+          background: var(--white); outline: none; transition: border-color .2s;
+        }
+        .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--teal); }
+        .field textarea { resize: vertical; min-height: 80px; }
+
+        /* Image upload field */
+        .img-upload-area {
+          border: 2px dashed var(--border); border-radius: 10px;
+          padding: 20px; text-align: center; cursor: pointer;
+          transition: border-color .2s, background .2s; position: relative;
+        }
+        .img-upload-area:hover { border-color: var(--teal); background: var(--teal-soft); }
+        .img-upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .img-upload-area .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+        .img-upload-area .upload-text { font-size: .85rem; color: var(--ink-mid); font-weight: 500; }
+        .img-upload-area .upload-sub { font-size: .75rem; color: var(--ink-light); margin-top: 4px; }
+        .img-preview { width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; margin-top: 10px; display: none; }
+
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-family: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--teal); color: var(--white); }
+        .btn-primary:hover { background: var(--teal-dark); transform: translateY(-1px); }
+        .btn-outline { background: transparent; color: var(--teal); border: 1.5px solid var(--teal); }
+        .btn-outline:hover { background: var(--teal-soft); }
+        .btn-danger { background: var(--red); color: var(--white); }
+        .btn-danger:hover { background: #DC2626; }
+        .btn-amber { background: var(--amber); color: var(--white); }
+        .btn-amber:hover { background: #D97706; }
+        .btn-full { width: 100%; justify-content: center; }
+        .btn-sm { padding: 6px 14px; font-size: .8rem; }
+
+        #app { display: flex; min-height: 100vh; }
+
+        .sidebar {
+          width: 240px; min-height: 100vh;
+          background: var(--ink); color: var(--white);
+          display: flex; flex-direction: column;
+          position: fixed; top: 0; left: 0; z-index: 100; padding: 0 0 24px;
+        }
+        .sidebar-logo { padding: 28px 24px 20px; font-family: 'Space Mono', monospace; font-size: 1.4rem; font-weight: 700; color: var(--teal); letter-spacing: -1px; border-bottom: 1px solid rgba(255,255,255,.08); }
+        .sidebar-logo span { color: #94A3B8; font-size: .7rem; font-family: 'Space Grotesk', sans-serif; font-weight: 400; display: block; margin-top: 2px; letter-spacing: 0; }
+        .sidebar-nav { flex: 1; padding: 16px 12px; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; font-size: .875rem; font-weight: 500; color: #94A3B8; cursor: pointer; transition: all .2s; margin-bottom: 2px; border: none; background: transparent; width: 100%; text-align: left; position: relative; }
+        .nav-item:hover { background: rgba(255,255,255,.06); color: var(--white); }
+        .nav-item.active { background: rgba(13,148,136,.2); color: var(--teal); }
+        .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+        .nav-badge { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: var(--red); color: var(--white); border-radius: 99px; font-size: .65rem; font-weight: 700; padding: 2px 6px; min-width: 18px; text-align: center; }
+        .sidebar-user { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,.08); }
+        .user-name { font-weight: 600; font-size: .9rem; color: var(--white); }
+        .user-pts { font-size: .75rem; color: var(--teal); font-family: 'Space Mono', monospace; margin-top: 2px; }
+        .logout-btn { margin-top: 10px; width: 100%; padding: 8px; border: 1px solid rgba(255,255,255,.15); border-radius: 6px; background: transparent; color: #94A3B8; font-family: inherit; font-size: .8rem; cursor: pointer; transition: all .2s; }
+        .logout-btn:hover { background: rgba(239,68,68,.15); border-color: var(--red); color: var(--red); }
+
+        .main { margin-left: 240px; flex: 1; padding: 32px; min-height: 100vh; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+        .page-title { font-size: 1.6rem; font-weight: 700; }
+        .page-sub { font-size: .875rem; color: var(--ink-light); margin-top: 2px; }
+
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+        .stat-card { background: var(--white); border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--shadow); }
+        .stat-label { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-light); }
+        .stat-value { font-size: 2rem; font-weight: 700; margin-top: 4px; font-family: 'Space Mono', monospace; }
+        .stat-card.teal .stat-value { color: var(--teal); }
+        .stat-card.amber .stat-value { color: var(--amber); }
+        .stat-card.red .stat-value { color: var(--red); }
+        .stat-card.emerald .stat-value { color: var(--emerald); }
+
+        .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+        .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .card-title { font-weight: 700; font-size: 1rem; }
+        .card-body { padding: 24px; }
+
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .item-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; transition: transform .2s, box-shadow .2s; cursor: pointer; }
+        .item-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+        .item-img { height: 140px; background: linear-gradient(135deg, #F1F5F9, #E2E8F0); display: flex; align-items: center; justify-content: center; font-size: 3rem; overflow: hidden; }
+        .item-body { padding: 16px; }
+        .item-name { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+        .item-meta { font-size: .8rem; color: var(--ink-light); margin-bottom: 12px; }
+        .item-footer { display: flex; align-items: center; justify-content: space-between; }
+
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+        .badge-lost    { background: #FEE2E2; color: #991B1B; }
+        .badge-found   { background: #D1FAE5; color: #065F46; }
+        .badge-claimed { background: #DBEAFE; color: #1E40AF; }
+        .badge-pending  { background: #FEF3C7; color: #92400E; }
+        .badge-approved { background: #D1FAE5; color: #065F46; }
+        .badge-rejected { background: #FEE2E2; color: #991B1B; }
+        .badge-accepted { background: #D1FAE5; color: #065F46; }
+
+        .filter-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
+        .filter-bar input { flex: 1; min-width: 200px; padding: 9px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-family: inherit; font-size: .875rem; outline: none; transition: border-color .2s; }
+        .filter-bar input:focus { border-color: var(--teal); }
+        .filter-btn { padding: 9px 16px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); font-family: inherit; font-size: .8rem; font-weight: 600; color: var(--ink-mid); cursor: pointer; transition: all .2s; }
+        .filter-btn.active { border-color: var(--teal); background: var(--teal-soft); color: var(--teal); }
+
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-light); padding: 12px 16px; border-bottom: 1.5px solid var(--border); }
+        td { padding: 14px 16px; font-size: .875rem; border-bottom: 1px solid var(--border); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: var(--surface); }
+
+        .modal-overlay { position: fixed; inset: 0; z-index: 500; background: rgba(15,23,42,.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .modal { background: var(--white); border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+        .modal-header { padding: 24px 28px 0; display: flex; align-items: center; justify-content: space-between; }
+        .modal-title { font-size: 1.2rem; font-weight: 700; }
+        .modal-close { width: 32px; height: 32px; border: none; background: var(--surface); border-radius: 8px; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; color: var(--ink-light); transition: background .2s; }
+        .modal-close:hover { background: var(--border); }
+        .modal-body { padding: 24px 28px 28px; }
+
+        /* Notifications panel */
+        .notif-item {
+          padding: 14px 16px; border-bottom: 1px solid var(--border);
+          font-size: .875rem; line-height: 1.5;
+        }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-meta { font-size: .75rem; color: var(--ink-light); margin-top: 4px; }
+        .notif-icon { font-size: 1.3rem; margin-right: 10px; }
+
+        /* System message bubble */
+        .msg.system .msg-bubble {
+          background: linear-gradient(135deg, #1E293B, #0F766E);
+          color: var(--white); border-radius: 12px;
+          border-bottom-left-radius: 4px;
+        }
+        .msg.system .msg-sender { font-size: .7rem; font-weight: 700; color: var(--teal); margin-bottom: 4px; }
+
+        /* Pending claims panel on My Items */
+        .pending-claim-row {
+          padding: 14px 16px; border-bottom: 1px solid var(--border);
+          display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+        }
+        .pending-claim-row:last-child { border-bottom: none; }
+
+        .chat-layout { display: grid; grid-template-columns: 260px 1fr; height: 560px; }
+        .chat-list { border-right: 1.5px solid var(--border); overflow-y: auto; }
+        .chat-user { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s; display: flex; gap: 10px; align-items: center; }
+        .chat-user:hover { background: var(--surface); }
+        .chat-user.active { background: var(--teal-soft); }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--teal), var(--teal-dark)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; color: var(--white); flex-shrink: 0; }
+        .chat-name { font-weight: 600; font-size: .875rem; }
+        .chat-preview { font-size: .75rem; color: var(--ink-light); }
+        .chat-window { display: flex; flex-direction: column; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .msg { max-width: 72%; }
+        .msg-bubble { padding: 10px 14px; border-radius: 12px; font-size: .875rem; line-height: 1.5; }
+        .msg.sent { align-self: flex-end; }
+        .msg.sent .msg-bubble { background: var(--teal); color: var(--white); border-bottom-right-radius: 4px; }
+        .msg.recv .msg-bubble { background: var(--surface); color: var(--ink); border-bottom-left-radius: 4px; }
+        .msg-time { font-size: .7rem; color: var(--ink-light); margin-top: 4px; }
+        .msg.sent .msg-time { text-align: right; }
+        .chat-input-bar { padding: 14px 16px; border-top: 1.5px solid var(--border); display: flex; gap: 10px; }
+        .chat-input-bar input { flex: 1; padding: 9px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-family: inherit; font-size: .875rem; outline: none; transition: border-color .2s; }
+        .chat-input-bar input:focus { border-color: var(--teal); }
+
+        .lb-row { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+        .lb-rank { font-family: 'Space Mono', monospace; font-weight: 700; width: 28px; color: var(--ink-light); }
+        .lb-rank.gold   { color: #F59E0B; }
+        .lb-rank.silver { color: #94A3B8; }
+        .lb-rank.bronze { color: #B45309; }
+        .lb-name { flex: 1; font-weight: 600; }
+        .lb-pts { font-family: 'Space Mono', monospace; font-weight: 700; color: var(--teal); }
+
+        .empty { text-align: center; padding: 60px 20px; color: var(--ink-light); }
+        .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+        .empty-text { font-size: 1rem; font-weight: 500; }
+        .empty-sub { font-size: .875rem; margin-top: 4px; }
+
+        @media (max-width: 900px) {
+          .sidebar { width: 60px; }
+          .sidebar-logo span, .nav-item span, .sidebar-user { display: none; }
+          .sidebar-logo { padding: 20px; font-size: 1rem; }
+          .main { margin-left: 60px; padding: 20px; }
+          .stats-row { grid-template-columns: repeat(2,1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay">
+    <div class="auth-box">
+        <div class="auth-logo">MITSU</div>
+        <div class="auth-tagline">Campus Lost & Found — reuniting what matters</div>
+        <div class="auth-tabs">
+            <button class="auth-tab active" onclick="showAuthTab('login')">Sign In</button>
+            <button class="auth-tab" onclick="showAuthTab('register')">Register</button>
+        </div>
+        <div id="login-form">
+            <div class="field"><label for="login-email">Email</label><input type="email" id="login-email" placeholder="your@email.com"></div>
+            <div class="field"><label for="login-pass">Password</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+            <button class="btn btn-primary btn-full" onclick="doLogin()">Sign In</button>
+        </div>
+        <div id="register-form" class="hidden">
+            <div class="field"><label for="reg-name">Full Name</label><input type="text" id="reg-name" placeholder="Amna Javaid"></div>
+            <div class="field"><label for="reg-email">Email</label><input type="email" id="reg-email" placeholder="your@email.com"></div>
+            <div class="field"><label for="reg-campus">Campus ID</label><input type="text" id="reg-campus" placeholder="2025-CYS-19"></div>
+            <div class="field"><label for="reg-pass">Password</label><input type="password" id="reg-pass" placeholder="••••••••"></div>
+            <button class="btn btn-primary btn-full" onclick="doRegister()">Create Account</button>
+        </div>
+    </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app" class="hidden">
+    <aside class="sidebar">
+        <div class="sidebar-logo">MITSU<span>Lost & Found System</span></div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" onclick="showPage('dashboard')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-item" onclick="showPage('items')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span>Browse Items</span>
+            </button>
+            <button class="nav-item" onclick="showPage('report')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span>Report Item</span>
+            </button>
+            <button class="nav-item" onclick="showPage('myitems')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 11H7m12 0l-4-4m4 4l-4 4M3 12a9 9 0 1118 0 9 9 0 01-18 0z"/></svg>
+                <span>My Items</span>
+                <span class="nav-badge hidden" id="pending-badge">0</span>
+            </button>
+            <button class="nav-item" onclick="showPage('claims')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                <span>My Claims</span>
+            </button>
+            <button class="nav-item" onclick="showPage('notifications')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                <span>Notifications</span>
+                <span class="nav-badge hidden" id="notif-badge">0</span>
+            </button>
+            <button class="nav-item" onclick="showPage('messages')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                <span>Messages</span>
+            </button>
+            <button class="nav-item" onclick="showPage('leaderboard')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <span>Leaderboard</span>
+            </button>
+        </nav>
+        <div class="sidebar-user">
+            <div class="user-name" id="sidebar-name">—</div>
+            <div class="user-pts" id="sidebar-pts">0 pts</div>
+            <button class="logout-btn" onclick="logout()">Sign Out</button>
+        </div>
+    </aside>
+
+    <main class="main">
+
+        <!-- Dashboard -->
+        <div class="page active" id="page-dashboard">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Dashboard</div>
+                    <div class="page-sub">Welcome back, <span id="dash-name">—</span></div>
+                </div>
+            </div>
+            <div class="stats-row">
+                <div class="stat-card teal"><div class="stat-label">Total Items</div><div class="stat-value" id="stat-total">0</div></div>
+                <div class="stat-card red"><div class="stat-label">Lost</div><div class="stat-value" id="stat-lost">0</div></div>
+                <div class="stat-card emerald"><div class="stat-label">Found</div><div class="stat-value" id="stat-found">0</div></div>
+                <div class="stat-card amber"><div class="stat-label">My Points</div><div class="stat-value" id="stat-pts">0</div></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Recent Items</div>
+                    <button class="btn btn-outline btn-sm" onclick="showPage('items')">View All</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Item</th><th>Category</th><th>Location</th><th>Status</th><th>Date</th></tr></thead>
+                        <tbody id="recent-items-body">
+                        <tr><td colspan="5"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No items yet</div></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Browse Items -->
+        <div class="page" id="page-items">
+            <div class="page-header">
+                <div><div class="page-title">Browse Items</div><div class="page-sub">Search and filter all reported items</div></div>
+                <button class="btn btn-primary" onclick="showPage('report')">+ Report Item</button>
+            </div>
+            <div class="filter-bar">
+                <input type="text" id="search-input" placeholder="Search by item name…" oninput="filterItems()">
+                <button class="filter-btn active" data-filter="ALL" onclick="setFilter(this)">All</button>
+                <button class="filter-btn" data-filter="LOST" onclick="setFilter(this)">Lost</button>
+                <button class="filter-btn" data-filter="FOUND" onclick="setFilter(this)">Found</button>
+                <button class="filter-btn" data-filter="CLAIMED" onclick="setFilter(this)">Claimed</button>
+            </div>
+            <div class="items-grid" id="items-grid">
+                <div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Loading items…</div></div>
+            </div>
+        </div>
+
+        <!-- Report Item -->
+        <div class="page" id="page-report">
+            <div class="page-header">
+                <div><div class="page-title">Report an Item</div><div class="page-sub">Tell us about a lost or found item</div></div>
+            </div>
+            <div class="card" style="max-width:600px">
+                <div class="card-body">
+                    <div class="field"><label for="r-name">Item Name</label><input type="text" id="r-name" placeholder="e.g. Blue Water Bottle"></div>
+                    <div class="field">
+                        <label for="r-category">Category</label><select id="r-category">
+                            <option value="">Select category</option>
+                            <option>Electronics</option><option>Clothing</option><option>Accessories</option>
+                            <option>Books & Stationery</option><option>Keys & Cards</option><option>Bags</option><option>Other</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="r-status">Status</label><select id="r-status">
+                            <option value="LOST">I lost this item</option>
+                            <option value="FOUND">I found this item</option>
+                        </select>
+                    </div>
+                    <div class="field"><label for="r-location">Location</label><input type="text" id="r-location" placeholder="e.g. Library 2nd Floor, Cafeteria"></div>
+                    <div class="field"><label for="r-date">Date</label><input type="date" id="r-date"></div>
+                    <div class="field"><label for="r-desc">Description</label><textarea id="r-desc" placeholder="Describe the item in detail — colour, brand, distinguishing marks…"></textarea></div>
+                    <div class="field">
+                        <label for="claim-proof">Item Photo (optional)</label>
+                        <div class="img-upload-area" id="report-upload-area">
+                            <input type="file" id="r-img-file" accept="image/*" onchange="previewImage(this,'report-preview','report-upload-area')">
+                            <div class="upload-icon">📷</div>
+                            <div class="upload-text">Tap to attach a photo</div>
+                            <div class="upload-sub">PNG, JPG, WEBP up to 10MB</div>
+                            <img id="report-preview" class="img-preview" alt="preview">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="reportItem()" style="margin-top:8px">Submit Report</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Items (posted by me — with pending claim/found-request management) -->
+        <div class="page" id="page-myitems">
+            <div class="page-header">
+                <div><div class="page-title">My Items</div><div class="page-sub">Items you reported — review and act on incoming requests</div></div>
+            </div>
+            <div id="myitems-container"></div>
+        </div>
+
+        <!-- My Claims -->
+        <div class="page" id="page-claims">
+            <div class="page-header">
+                <div><div class="page-title">My Claims</div><div class="page-sub">Track claims you've submitted</div></div>
+            </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Item</th><th>Proof Summary</th><th>Submitted</th><th>Status</th></tr></thead>
+                        <tbody id="claims-body">
+                        <tr><td colspan="4"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No claims yet</div></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications -->
+        <div class="page" id="page-notifications">
+            <div class="page-header">
+                <div><div class="page-title">Notifications</div><div class="page-sub">Automated updates from Mitsu</div></div>
+                <button class="btn btn-outline btn-sm" onclick="markAllNotifsRead()">Mark all read</button>
+            </div>
+            <div class="card" style="max-width:700px">
+                <div id="notif-list">
+                    <div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">No notifications yet</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="page" id="page-messages">
+            <div class="page-header">
+                <div><div class="page-title">Messages</div><div class="page-sub">Chat with other users about items</div></div>
+            </div>
+            <div class="card">
+                <div class="chat-layout">
+                    <div class="chat-list" id="chat-list">
+                        <div style="padding:16px;font-size:.8rem;color:var(--ink-light)">No conversations yet.<br>Open an item and click "Message".</div>
+                    </div>
+                    <div class="chat-window">
+                        <div class="chat-messages" id="chat-messages">
+                            <div class="empty" style="margin:auto"><div class="empty-icon">💬</div><div class="empty-text">Select a conversation</div></div>
+                        </div>
+                        <div class="chat-input-bar" id="chat-input-bar">
+                            <input type="text" id="msg-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendMsg()">
+                            <button class="btn btn-primary btn-sm" onclick="sendMsg()">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="page" id="page-leaderboard">
+            <div class="page-header">
+                <div><div class="page-title">Leaderboard</div><div class="page-sub">Top contributors earn points by reporting & returning items</div></div>
+            </div>
+            <div class="card" style="max-width:600px">
+                <div class="card-header"><div class="card-title">🏆 Point Rankings</div></div>
+                <div id="leaderboard-list"></div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ITEM DETAIL MODAL -->
+<div class="modal-overlay hidden" id="item-modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title" id="modal-item-name">Item</div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="modal-item-img" style="height:160px;background:linear-gradient(135deg,#F1F5F9,#E2E8F0);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:4rem;margin-bottom:20px;overflow:hidden"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+                <div><div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-light)">Category</div><div id="modal-cat" style="margin-top:4px;font-weight:600"></div></div>
+                <div><div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-light)">Status</div><div id="modal-status" style="margin-top:4px"></div></div>
+                <div><div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-light)">Location</div><div id="modal-loc" style="margin-top:4px;font-weight:600"></div></div>
+                <div><div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-light)">Date</div><div id="modal-date" style="margin-top:4px;font-weight:600"></div></div>
+            </div>
+            <div style="margin-bottom:20px">
+                <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-light);margin-bottom:6px">Description</div>
+                <div id="modal-desc" style="font-size:.9rem;line-height:1.6;color:var(--ink-mid)"></div>
+            </div>
+            <div id="modal-actions" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+        </div>
+    </div>
+</div>
+
+<!-- CLAIM MODAL -->
+<div class="modal-overlay hidden" id="claim-modal" onclick="if(event.target===this)closeClaimModal()">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Submit a Claim</div>
+            <button class="modal-close" onclick="closeClaimModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.875rem;color:var(--ink-mid);margin-bottom:20px">
+                Provide evidence that this item belongs to you. The founder will review your claim and accept or reject it.
+            </p>
+            <input type="hidden" id="claim-item-id">
+            <div class="field">
+                <label>Proof Description</label><textarea id="claim-proof" placeholder="Describe unique features, purchase details, serial numbers, what was inside the bag, etc."></textarea>
+            </div>
+            <div class="field">
+                <label for="found-msg">Proof Photo (optional)</label>
+                <div class="img-upload-area" id="claim-upload-area">
+                    <input type="file" id="claim-img-file" accept="image/*" onchange="previewImage(this,'claim-preview','claim-upload-area')">
+                    <div class="upload-icon">📎</div>
+                    <div class="upload-text">Attach proof photo</div>
+                    <div class="upload-sub">PNG, JPG, WEBP up to 10MB</div>
+                    <img id="claim-preview" class="img-preview" alt="preview">
+                </div>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="submitClaim()" style="margin-top:8px">Submit Claim</button>
+        </div>
+    </div>
+</div>
+
+<!-- I FOUND IT MODAL -->
+<div class="modal-overlay hidden" id="found-modal" onclick="if(event.target===this)closeFoundModal()">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">I Found This Item!</div>
+            <button class="modal-close" onclick="closeFoundModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.875rem;color:var(--ink-mid);margin-bottom:20px">
+                Tell the owner where you found it and how they can reach you. The owner will confirm and you'll earn <strong>30 points!</strong>
+            </p>
+            <input type="hidden" id="found-item-id">
+            <div class="field">
+                <label>Your Message to the Owner</label><textarea id="found-msg" placeholder="e.g. I found your bag near the library entrance. I currently have it with me at Block C room 204. Please message me."></textarea>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="submitFoundRequest()" style="margin-top:8px">Send Found Request</button>
+        </div>
+    </div>
+</div>
+
+<!-- CLAIM SENT SUCCESS OVERLAY -->
+<div id="claim-sent-overlay" class="hidden">
+    <div class="claim-sent-box">
+        <div class="claim-sent-icon" id="claim-sent-icon">📨</div>
+        <div class="claim-sent-title" id="claim-sent-title">Claim Request Sent!</div>
+        <div class="claim-sent-sub" id="claim-sent-sub">
+            The founder has been notified. You'll receive a Mitsu notification when they accept or reject your claim.
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    // ── API base URL ──────────────────────────────────────────────────────────
+    // If this file is served from the same origin as the backend, use '' (empty)
+    // so all fetch calls go to the same host (avoids CORS issues).
+    // If your backend runs elsewhere, set the full URL here, e.g.:
+    //   const API = 'https://your-backend.example.com';
+    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8080'   // local dev: talk directly to the Spring Boot server
+      : '';                       // production: same-origin — no absolute URL needed
+
+    let currentUser  = null;
+    let allItems     = [];
+    let filterStatus = 'ALL';
+    let activeChat   = null;
+    let chatPollTimer = null;
+    let notifPollTimer = null;
+
+    /* ── Toast ── */
+    function toast(msg, type = '') {
+      const el = document.getElementById('toast');
+      el.textContent = msg; el.className = type ? `show ${type}` : 'show';
+      clearTimeout(el._t); el._t = setTimeout(() => { el.className = ''; }, 3000);
+    }
+
+    /* ── API helper ── */
+    async function api(path, opts = {}) {
+      try {
+        const res = await fetch(API + path, {
+          headers: { 'Content-Type': 'application/json' },
+          ...opts
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || res.statusText);
+        }
+        return res.json();
+      } catch (e) { throw e; }
+    }
+
+    /* ── Upload image file, returns URL string ── */
+    async function uploadImageFile(file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(API + '/upload/image', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      return data.url;
+    }
+
+    /* ── Preview image after selection ── */
+    function previewImage(input, previewId, areaId) {
+      const file = input.files[0];
+      if (!file) return;
+      const preview = document.getElementById(previewId);
+      const area = document.getElementById(areaId);
+      const reader = new FileReader();
+      reader.onload = e => {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        area.querySelector('.upload-icon').style.display = 'none';
+        area.querySelector('.upload-text').textContent = file.name;
+        area.querySelector('.upload-sub').textContent = (file.size/1024/1024).toFixed(1) + ' MB';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /* ── Claim sent success animation ── */
+    function showClaimSent(title, sub, icon = '📨') {
+      const overlay = document.getElementById('claim-sent-overlay');
+      document.getElementById('claim-sent-icon').textContent = icon;
+      document.getElementById('claim-sent-title').textContent = title;
+      document.getElementById('claim-sent-sub').textContent = sub;
+      overlay.classList.remove('hidden');
+      setTimeout(() => overlay.classList.add('hidden'), 3000);
+    }
+
+    /* ── Auth ── */
+    function showAuthTab(tab) {
+      document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
+      document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+      document.querySelectorAll('.auth-tab').forEach((b, i) => b.classList.toggle('active', (i === 0) === (tab === 'login')));
+    }
+
+    async function doLogin() {
+      const email = document.getElementById('login-email').value.trim();
+      const pass  = document.getElementById('login-pass').value;
+      try {
+        const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password: pass }) });
+        setUser(data);
+      } catch(e) { toast(e.message || 'Login failed', 'error'); }
+    }
+
+    async function doRegister() {
+      const name   = document.getElementById('reg-name').value.trim();
+      const email  = document.getElementById('reg-email').value.trim();
+      const campus = document.getElementById('reg-campus').value.trim();
+      const pass   = document.getElementById('reg-pass').value;
+      try {
+        const data = await api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, campusId: campus, password: pass }) });
+        setUser(data);
+      } catch(e) { toast(e.message || 'Registration failed', 'error'); }
+    }
+
+    function setUser(data) {
+      currentUser = data;
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('sidebar-name').textContent = currentUser.name;
+      document.getElementById('sidebar-pts').textContent = currentUser.points + ' pts';
+      document.getElementById('dash-name').textContent = currentUser.name;
+      showPage('dashboard');
+      loadDashboard();
+      startNotifPolling();
+    }
+
+    function logout() {
+      currentUser = null; allItems = []; activeChat = null;
+      clearInterval(chatPollTimer); clearInterval(notifPollTimer);
+      document.getElementById('auth-overlay').style.display = '';
+      document.getElementById('app').classList.add('hidden');
+    }
+
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('page-' + id)?.classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(b => {
+        if (b.getAttribute('onclick')?.includes("'" + id + "'")) b.classList.add('active');
+      });
+      if (id === 'dashboard')     loadDashboard();
+      if (id === 'items')         loadItems();
+      if (id === 'claims')        loadClaims();
+      if (id === 'myitems')       loadMyItems();
+      if (id === 'notifications') loadNotifications();
+      if (id === 'messages')      loadConversations();
+      if (id === 'leaderboard')   loadLeaderboard();
+    }
+
+    async function loadDashboard() {
+      try {
+        const items = await api('/items');
+        allItems = items;
+        const lost  = items.filter(i => i.status === 'LOST').length;
+        const found = items.filter(i => i.status === 'FOUND').length;
+        document.getElementById('stat-total').textContent = items.length;
+        document.getElementById('stat-lost').textContent  = lost;
+        document.getElementById('stat-found').textContent = found;
+
+        const user = await api('/users/' + currentUser.userId).catch(() => currentUser);
+        currentUser.points = user.points ?? currentUser.points;
+        document.getElementById('stat-pts').textContent = currentUser.points;
+        document.getElementById('sidebar-pts').textContent = currentUser.points + ' pts';
+
+        const tbody = document.getElementById('recent-items-body');
+        const recent = [...items].reverse().slice(0, 8);
+        tbody.innerHTML = recent.length ? recent.map(itemRow).join('') :
+          '<tr><td colspan="5"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No items yet</div></div></td></tr>';
+      } catch(e) { toast('Failed to load dashboard', 'error'); }
+    }
+
+    function itemRow(i) {
+      return `<tr onclick="openItem(${i.itemId})" style="cursor:pointer">
+        <td><strong>${esc(i.itemName)}</strong></td>
+        <td>${esc(i.category||'—')}</td>
+        <td>${esc(i.locationFound||'—')}</td>
+        <td>${statusBadge(i.status)}</td>
+        <td>${esc(i.dateFound||'—')}</td>
+      </tr>`;
+    }
+
+    async function loadItems() {
+      try {
+        allItems = await api('/items');
+        renderItems();
+      } catch(e) { toast('Failed to load items', 'error'); }
+    }
+
+    function setFilter(btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterStatus = btn.dataset.filter;
+      renderItems();
+    }
+
+    function filterItems() { renderItems(); }
+
+    function renderItems() {
+      const q    = document.getElementById('search-input')?.value.toLowerCase() || '';
+      const grid = document.getElementById('items-grid');
+      let items  = allItems.filter(i => i.status !== 'CLAIMED');
+      if (filterStatus !== 'ALL') items = items.filter(i => i.status === filterStatus);
+      if (q) items = items.filter(i => i.itemName.toLowerCase().includes(q));
+      grid.innerHTML = items.length ? items.map(itemCard).join('') :
+        '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No items found</div></div>';
+    }
+
+    function itemCard(i) {
+      const emoji = categoryEmoji(i.category);
+      return `<div class="item-card" onclick="openItem(${i.itemId})">
+        <div class="item-img">${i.imageUrl
+          ? `<img src="${API}${i.imageUrl.startsWith('/') ? '' : '/'}${esc(i.imageUrl)}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='${emoji}'">`
+          : emoji}</div>
+        <div class="item-body">
+          <div class="item-name">${esc(i.itemName)}</div>
+          <div class="item-meta">${esc(i.category||'—')} · ${esc(i.locationFound||'—')}</div>
+          <div class="item-footer">${statusBadge(i.status)}<span style="font-size:.75rem;color:var(--ink-light)">${esc(i.dateFound||'')}</span></div>
+        </div>
+      </div>`;
+    }
+
+    function categoryEmoji(cat) {
+      const m = { Electronics:'💻', Clothing:'👕', Accessories:'⌚', 'Books & Stationery':'📚', 'Keys & Cards':'🔑', Bags:'🎒' };
+      return m[cat] || '📦';
+    }
+
+    /* ── Item modal ── */
+    function openItem(id) {
+      const i = allItems.find(x => x.itemId === id);
+      if (!i) return;
+
+      document.getElementById('modal-item-name').textContent = i.itemName;
+      document.getElementById('modal-cat').textContent       = i.category || '—';
+      document.getElementById('modal-loc').textContent       = i.locationFound || '—';
+      document.getElementById('modal-date').textContent      = i.dateFound || '—';
+      document.getElementById('modal-desc').textContent      = i.description || 'No description provided.';
+      document.getElementById('modal-status').innerHTML      = statusBadge(i.status);
+
+      const imgBox = document.getElementById('modal-item-img');
+      imgBox.innerHTML = i.imageUrl
+        ? `<img src="${API}${i.imageUrl.startsWith('/') ? '' : '/'}${esc(i.imageUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:10px" onerror="this.parentElement.textContent='${categoryEmoji(i.category)}'">`
+        : categoryEmoji(i.category);
+
+      const actions = document.getElementById('modal-actions');
+      actions.innerHTML = '';
+
+      const isMyItem = currentUser && i.reportedBy && i.reportedBy.userId === currentUser.userId;
+
+      if (!isMyItem && i.status !== 'CLAIMED') {
+        if (i.status === 'FOUND') {
+          // This item was found by someone — user can claim it as theirs
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-primary';
+          btn.textContent = '🙋 This is Mine — Claim It';
+          btn.onclick = () => { closeModal(); openClaimModal(i.itemId); };
+          actions.appendChild(btn);
+        } else if (i.status === 'LOST') {
+          // This item is lost — user can say they found it
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-amber';
+          btn.textContent = '🔍 I Found This!';
+          btn.onclick = () => { closeModal(); openFoundModal(i.itemId); };
+          actions.appendChild(btn);
+        }
+
+        // Message button
+        if (i.reportedBy) {
+          const msgBtn = document.createElement('button');
+          msgBtn.className = 'btn btn-outline';
+          msgBtn.textContent = '💬 Message Reporter';
+          msgBtn.onclick = () => { closeModal(); startChat(i.reportedBy.userId, i.reportedBy.name); };
+          actions.appendChild(msgBtn);
+        }
+      }
+
+      document.getElementById('item-modal').classList.remove('hidden');
+    }
+
+    function closeModal() { document.getElementById('item-modal').classList.add('hidden'); }
+
+    /* ── Report Item ── */
+    async function reportItem() {
+      const name     = document.getElementById('r-name').value.trim();
+      const category = document.getElementById('r-category').value;
+      const status   = document.getElementById('r-status').value;
+      const location = document.getElementById('r-location').value.trim();
+      const date     = document.getElementById('r-date').value;
+      const desc     = document.getElementById('r-desc').value.trim();
+      const fileInput = document.getElementById('r-img-file');
+
+      if (!name) { toast('Item name is required', 'error'); return; }
+
+      let imageUrl = '';
+      try {
+        if (fileInput.files[0]) {
+          imageUrl = await uploadImageFile(fileInput.files[0]);
+        }
+        await api(`/items?userId=${currentUser.userId}`, {
+          method: 'POST',
+          body: JSON.stringify({ itemName: name, category, status, locationFound: location, dateFound: date, description: desc, imageUrl })
+        });
+        toast('Item reported! +10 points', 'success');
+        // Reset form
+        ['r-name','r-location','r-date','r-desc'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('r-img-file').value = '';
+        document.getElementById('report-preview').style.display = 'none';
+        document.getElementById('report-upload-area').querySelector('.upload-icon').style.display = '';
+        document.getElementById('report-upload-area').querySelector('.upload-text').textContent = 'Tap to attach a photo';
+        showPage('items');
+      } catch(e) { toast(e.message || 'Failed to report item', 'error'); }
+    }
+
+    /* ── Claim modal ── */
+    function openClaimModal(itemId) {
+      document.getElementById('claim-item-id').value = itemId;
+      document.getElementById('claim-proof').value   = '';
+      document.getElementById('claim-img-file').value = '';
+      document.getElementById('claim-preview').style.display = 'none';
+      document.getElementById('claim-upload-area').querySelector('.upload-icon').style.display = '';
+      document.getElementById('claim-upload-area').querySelector('.upload-text').textContent = 'Attach proof photo';
+      document.getElementById('claim-modal').classList.remove('hidden');
+    }
+
+    function closeClaimModal() { document.getElementById('claim-modal').classList.add('hidden'); }
+
+    async function submitClaim() {
+      const itemId = document.getElementById('claim-item-id').value;
+      const proof  = document.getElementById('claim-proof').value.trim();
+      const file   = document.getElementById('claim-img-file').files[0];
+      if (!proof) { toast('Please describe your proof', 'error'); return; }
+
+      try {
+        let proofImageUrl = '';
+        if (file) proofImageUrl = await uploadImageFile(file);
+
+        await api('/claims', {
+          method: 'POST',
+          body: JSON.stringify({ itemId: +itemId, claimantId: currentUser.userId, proofDescription: proof, proofImageUrl })
+        });
+        closeClaimModal();
+        showClaimSent(
+          'Claim Request Sent!',
+          'The founder has been notified. You\'ll get a Mitsu notification when they respond.',
+          '📨'
+        );
+      } catch(e) { toast(e.message || 'Failed to submit claim', 'error'); }
+    }
+
+    /* ── I Found It modal ── */
+    function openFoundModal(itemId) {
+      document.getElementById('found-item-id').value = itemId;
+      document.getElementById('found-msg').value = '';
+      document.getElementById('found-modal').classList.remove('hidden');
+    }
+
+    function closeFoundModal() { document.getElementById('found-modal').classList.add('hidden'); }
+
+    async function submitFoundRequest() {
+      const itemId = document.getElementById('found-item-id').value;
+      const msg    = document.getElementById('found-msg').value.trim();
+      if (!msg) { toast('Please write a message to the owner', 'error'); return; }
+
+      try {
+        await api('/found-requests', {
+          method: 'POST',
+          body: JSON.stringify({ itemId: +itemId, finderId: currentUser.userId, message: msg })
+        });
+        closeFoundModal();
+        showClaimSent(
+          'Found Request Sent!',
+          'The owner has been notified. If they confirm, you\'ll earn 30 points!',
+          '🔍'
+        );
+      } catch(e) { toast(e.message || 'Failed to send request', 'error'); }
+    }
+
+    /* ── My Claims ── */
+    async function loadClaims() {
+      try {
+        const claims = await api(`/claims/user/${currentUser.userId}`);
+        const tbody  = document.getElementById('claims-body');
+        if (!claims.length) {
+          tbody.innerHTML = '<tr><td colspan="4"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No claims yet</div><div class="empty-sub">Browse items and claim what belongs to you</div></div></td></tr>';
+          return;
+        }
+        tbody.innerHTML = claims.map(c => `<tr>
+          <td><strong>${esc(c.item?.itemName||'—')}</strong></td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.proofDescription||'—')}</td>
+          <td style="font-size:.8rem;color:var(--ink-light)">${c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}</td>
+          <td>${claimBadge(c.status)}</td>
+        </tr>`).join('');
+      } catch(e) {}
+    }
+
+    /* ── My Items (manage incoming claims & found requests) ── */
+    async function loadMyItems() {
+      try {
+        const myItems = await api(`/items/user/${currentUser.userId}`);
+        const container = document.getElementById('myitems-container');
+
+        if (!myItems.length) {
+          container.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">You haven\'t reported any items yet</div></div>';
+          return;
+        }
+
+        // For each item, load pending claims and found requests
+        let html = '';
+        let totalPending = 0;
+
+        for (const item of myItems) {
+          if (item.status === 'CLAIMED') continue; // already resolved
+
+          const claims       = await api(`/claims/item/${item.itemId}`).catch(() => []);
+          const foundReqs    = await api(`/found-requests/item/${item.itemId}`).catch(() => []);
+          const pendingClaims = claims.filter(c => c.status === 'PENDING');
+          const pendingFound  = foundReqs.filter(r => r.status === 'PENDING');
+          totalPending += pendingClaims.length + pendingFound.length;
+
+          const emoji = categoryEmoji(item.category);
+          html += `<div class="card" style="margin-bottom:20px">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:12px">
+                <span style="font-size:1.8rem">${emoji}</span>
+                <div>
+                  <div class="card-title">${esc(item.itemName)}</div>
+                  <div style="font-size:.8rem;color:var(--ink-light)">${statusBadge(item.status)} · ${esc(item.locationFound||'—')} · ${esc(item.dateFound||'—')}</div>
+                </div>
+              </div>
+              <span style="font-size:.8rem;color:var(--ink-light)">${pendingClaims.length + pendingFound.length} pending</span>
+            </div>`;
+
+          if (pendingClaims.length === 0 && pendingFound.length === 0) {
+            html += `<div style="padding:20px;color:var(--ink-light);font-size:.875rem">No pending requests for this item.</div>`;
+          }
+
+          if (pendingClaims.length > 0) {
+            html += `<div style="padding:16px 20px 4px;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-light)">Claim Requests — Someone says this is theirs</div>`;
+            for (const c of pendingClaims) {
+              html += `<div class="pending-claim-row">
+                <div style="flex:1">
+                  <div style="font-weight:600">${esc(c.claimant?.name||'Unknown')}</div>
+                  <div style="font-size:.8rem;color:var(--ink-mid);margin-top:4px">${esc(c.proofDescription||'—')}</div>
+                  ${c.proofImageUrl ? `<a href="${API}${c.proofImageUrl}" target="_blank" style="font-size:.75rem;color:var(--teal)">View proof photo</a>` : ''}
+                </div>
+                <div style="display:flex;gap:8px;flex-shrink:0">
+                  <button class="btn btn-primary btn-sm" onclick="approveClaim(${c.claimId})">✓ Accept</button>
+                  <button class="btn btn-danger btn-sm" onclick="rejectClaim(${c.claimId})">✕ Reject</button>
+                </div>
+              </div>`;
+            }
+          }
+
+          if (pendingFound.length > 0) {
+            html += `<div style="padding:16px 20px 4px;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-light)">Found Requests — Someone says they found it</div>`;
+            for (const r of pendingFound) {
+              html += `<div class="pending-claim-row">
+                <div style="flex:1">
+                  <div style="font-weight:600">${esc(r.finder?.name||'Unknown')}</div>
+                  <div style="font-size:.8rem;color:var(--ink-mid);margin-top:4px">"${esc(r.message||'—')}"</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-shrink:0">
+                  <button class="btn btn-primary btn-sm" onclick="acceptFoundRequest(${r.requestId})">✓ Yes, Found</button>
+                  <button class="btn btn-danger btn-sm" onclick="rejectFoundRequest(${r.requestId})">✕ Not Mine</button>
+                </div>
+              </div>`;
+            }
+          }
+
+          html += '</div>';
+        }
+
+        container.innerHTML = html || '<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No active items to manage</div></div>';
+
+        // Update badge
+        const badge = document.getElementById('pending-badge');
+        if (totalPending > 0) { badge.textContent = totalPending; badge.classList.remove('hidden'); }
+        else { badge.classList.add('hidden'); }
+
+      } catch(e) { toast('Failed to load your items', 'error'); }
+    }
+
+    async function approveClaim(claimId) {
+      try {
+        await api(`/claims/${claimId}/approve`, { method: 'PUT' });
+        toast('Claim approved! Item marked as returned.', 'success');
+        loadMyItems();
+      } catch(e) { toast(e.message || 'Failed', 'error'); }
+    }
+
+    async function rejectClaim(claimId) {
+      try {
+        await api(`/claims/${claimId}/reject`, { method: 'PUT' });
+        toast('Claim rejected. User notified.', 'success');
+        loadMyItems();
+      } catch(e) { toast(e.message || 'Failed', 'error'); }
+    }
+
+    async function acceptFoundRequest(requestId) {
+      try {
+        await api(`/found-requests/${requestId}/accept`, { method: 'PUT' });
+        toast('Confirmed! Item marked as found. Finder gets 30 points!', 'success');
+        loadMyItems();
+      } catch(e) { toast(e.message || 'Failed', 'error'); }
+    }
+
+    async function rejectFoundRequest(requestId) {
+      try {
+        await api(`/found-requests/${requestId}/reject`, { method: 'PUT' });
+        toast('Rejected. Finder has been notified.', 'success');
+        loadMyItems();
+      } catch(e) { toast(e.message || 'Failed', 'error'); }
+    }
+
+    /* ── Notifications (Mitsu system messages) ── */
+    async function loadNotifications() {
+      try {
+        const notifs = await api(`/messages/notifications/${currentUser.userId}`);
+        const list = document.getElementById('notif-list');
+        if (!notifs.length) {
+          list.innerHTML = '<div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">No notifications yet</div></div>';
+          return;
+        }
+        list.innerHTML = [...notifs].reverse().map(n => {
+          const icon = n.content.startsWith('✅') ? '✅' : n.content.startsWith('❌') ? '❌' : n.content.startsWith('🔍') ? '🔍' : '🔔';
+          return `<div class="notif-item ${n.isRead ? '' : 'unread'}" style="${n.isRead ? '' : 'background:#F0FDF4;border-left:3px solid var(--teal)'}">
+            <div style="display:flex;gap:10px">
+              <span class="notif-icon">${icon}</span>
+              <div style="flex:1">
+                <div>${esc(n.content.replace(/^[✅❌🔍🔔]\s*Mitsu:\s*/, ''))}</div>
+                <div class="notif-meta">${n.item ? 'Re: ' + esc(n.item.itemName) + ' · ' : ''}${n.sentAt ? new Date(n.sentAt).toLocaleString() : ''}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+      } catch(e) {}
+    }
+
+    async function markAllNotifsRead() {
+      try {
+        const notifs = await api(`/messages/notifications/${currentUser.userId}`);
+        for (const n of notifs) {
+          if (!n.isRead) await api(`/messages/${n.messageId}/read`, { method: 'PUT' }).catch(() => {});
+        }
+        updateNotifBadge(0);
+        loadNotifications();
+      } catch(e) {}
+    }
+
+    function startNotifPolling() {
+      clearInterval(notifPollTimer);
+      checkNotifBadge();
+      notifPollTimer = setInterval(checkNotifBadge, 15000);
+    }
+
+    async function checkNotifBadge() {
+      if (!currentUser) return;
+      try {
+        const notifs = await api(`/messages/notifications/${currentUser.userId}`);
+        const unread = notifs.filter(n => !n.isRead).length;
+        updateNotifBadge(unread);
+
+        // Also check pending items for badge
+        const myItems = await api(`/items/user/${currentUser.userId}`).catch(() => []);
+        let pending = 0;
+        for (const item of myItems.filter(i => i.status !== 'CLAIMED')) {
+          const c = await api(`/claims/item/${item.itemId}`).catch(() => []);
+          const f = await api(`/found-requests/item/${item.itemId}`).catch(() => []);
+          pending += c.filter(x => x.status === 'PENDING').length + f.filter(x => x.status === 'PENDING').length;
+        }
+        const pb = document.getElementById('pending-badge');
+        if (pending > 0) { pb.textContent = pending; pb.classList.remove('hidden'); }
+        else { pb.classList.add('hidden'); }
+      } catch(e) {}
+    }
+
+    function updateNotifBadge(count) {
+      const badge = document.getElementById('notif-badge');
+      if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
+      else { badge.classList.add('hidden'); }
+    }
+
+    /* ── Messages ── */
+    async function loadConversations() {
+      try {
+        const unread = await api(`/messages/unread/${currentUser.userId}`);
+        const seen = new Set(); const partners = [];
+        unread.forEach(m => {
+          const partner = m.sender.userId !== currentUser.userId ? m.sender : m.receiver;
+          if (!seen.has(partner.userId)) { seen.add(partner.userId); partners.push(partner); }
+        });
+        renderChatList(partners);
+      } catch(e) {}
+    }
+
+    function renderChatList(partners) {
+      const list = document.getElementById('chat-list');
+      if (!partners.length) {
+        list.innerHTML = '<div style="padding:16px;font-size:.8rem;color:var(--ink-light)">No conversations yet.<br>Open an item and click "Message".</div>';
+        return;
+      }
+      list.innerHTML = partners.map(p => `
+        <div class="chat-user ${activeChat?.userId === p.userId ? 'active' : ''}" onclick="startChat(${p.userId},'${esc(p.name)}')">
+          <div class="avatar">${p.name[0].toUpperCase()}</div>
+          <div><div class="chat-name">${esc(p.name)}</div><div class="chat-preview">${esc(p.campusId || '')}</div></div>
+        </div>`).join('');
+    }
+
+    function startChat(userId, name) {
+      activeChat = { userId, name };
+      showPage('messages');
+      loadMessages();
+      clearInterval(chatPollTimer);
+      chatPollTimer = setInterval(loadMessages, 4000);
+    }
+
+    async function loadMessages() {
+      if (!activeChat) return;
+      try {
+        const msgs = await api(`/messages/conversation?userId1=${currentUser.userId}&userId2=${activeChat.userId}`);
+        const box  = document.getElementById('chat-messages');
+        if (!msgs.length) {
+          box.innerHTML = `<div class="empty" style="margin:auto"><div class="empty-icon">💬</div><div class="empty-text">Say hello to ${esc(activeChat.name)}!</div></div>`;
+          return;
+        }
+        box.innerHTML = msgs.map(m => {
+          const sent = m.sender.userId === currentUser.userId;
+          return `<div class="msg ${sent ? 'sent' : 'recv'}">
+            <div class="msg-bubble">${esc(m.content)}</div>
+            <div class="msg-time">${new Date(m.sentAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+          </div>`;
+        }).join('');
+        box.scrollTop = box.scrollHeight;
+      } catch(e) {}
+    }
+
+    async function sendMsg() {
+      if (!activeChat) { toast('Select a conversation first', 'error'); return; }
+      const content = document.getElementById('msg-input').value.trim();
+      if (!content) return;
+      try {
+        await api('/messages', { method: 'POST', body: JSON.stringify({ senderId: currentUser.userId, receiverId: activeChat.userId, content }) });
+        document.getElementById('msg-input').value = '';
+        loadMessages();
+      } catch(e) {}
+    }
+
+    /* ── Leaderboard ── */
+    async function loadLeaderboard() {
+      try {
+        const users = await api('/users/leaderboard');
+        const list  = document.getElementById('leaderboard-list');
+        if (!users.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-text">No users yet</div></div>'; return; }
+        const rankClass = ['gold','silver','bronze'];
+        const medals    = ['🥇','🥈','🥉'];
+        list.innerHTML  = users.map((u, idx) => `
+          <div class="lb-row">
+            <div class="lb-rank ${rankClass[idx]||''}">${medals[idx]||(idx+1)}</div>
+            <div class="avatar">${u.name[0].toUpperCase()}</div>
+            <div class="lb-name">${esc(u.name)}<br><span style="font-size:.75rem;color:var(--ink-light)">${esc(u.campusId||u.email)}</span></div>
+            <div class="lb-pts">${u.points} pts</div>
+          </div>`).join('');
+      } catch(e) {}
+    }
+
+    /* ── Helpers ── */
+    function statusBadge(s) {
+      const m = { LOST:'badge-lost', FOUND:'badge-found', CLAIMED:'badge-claimed' };
+      return `<span class="badge ${m[s]||''}">${s}</span>`;
+    }
+    function claimBadge(s) {
+      const m = { PENDING:'badge-pending', APPROVED:'badge-approved', REJECTED:'badge-rejected' };
+      return `<span class="badge ${m[s]||''}">${s}</span>`;
+    }
+    function esc(str) {
+      return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+</script>
+</body>
+</html>
